@@ -48,6 +48,7 @@ struct stat;
 struct stat64;
 struct statfs;
 struct statfs64;
+struct statx;
 struct __sysctl_args;
 struct sysinfo;
 struct timespec;
