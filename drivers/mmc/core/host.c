@@ -1071,6 +1071,7 @@ EXPORT_SYMBOL(mmc_remove_host);
  */
 void mmc_free_host(struct mmc_host *host)
 {
+	cancel_delayed_work_sync(&host->detect);
 	mmc_pwrseq_free(host);
 	wakeup_source_trash(&host->pm_ws);
 	put_device(&host->class_dev);
