@@ -34,6 +34,7 @@
 #include "mdss_debug.h"
 #include "mdss_fb.h"
 #include "mdss_dropbox.h"
+#include "mdss_livedisplay.h"
 
 #define MDSS_PANEL_DEFAULT_VER 0xffffffffffffffff
 #define MDSS_PANEL_UNKNOWN_NAME "unknown"
@@ -197,7 +198,7 @@ static void mdss_dsi_panel_apply_settings(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
-static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_panel_cmds *pcmds, u32 flags)
 {
 	struct dcs_cmd_req cmdreq;
@@ -1259,6 +1260,10 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	}
 
 	panel_notify(PANEL_EVENT_DISPLAY_ON, pinfo);
+
+	if (pdata->event_handler)
+		pdata->event_handler(pdata, MDSS_EVENT_UPDATE_LIVEDISPLAY,
+				(void *)(unsigned long) MODE_UPDATE_ALL);
 
 end:
 	if (dropbox_issue != NULL) {
@@ -3492,6 +3497,8 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	if (rc)
 		goto error;
+
+	mdss_livedisplay_parse_dt(np, pinfo);
 
 	return 0;
 
