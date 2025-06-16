@@ -54,7 +54,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			efficiency = <1024>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
@@ -82,7 +82,7 @@
 		CPU1: cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x1>;
 			efficiency = <1024>;
@@ -105,7 +105,7 @@
 		CPU2: cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x2>;
 			efficiency = <1024>;
@@ -128,7 +128,7 @@
 		CPU3: cpu@3 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x3>;
 			efficiency = <1024>;
@@ -151,7 +151,7 @@
 		CPU4: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x100>;
 			efficiency = <1638>;
@@ -178,7 +178,7 @@
 		CPU5: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x101>;
 			efficiency = <1638>;
@@ -201,7 +201,7 @@
 		CPU6: cpu@102 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x102>;
 			efficiency = <1638>;
@@ -224,7 +224,7 @@
 		CPU7: cpu@103 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
-			clock-frequency = <1804800000>;            
+			clock-frequency = <2600000000>;            
 			enable-method = "psci";
 			reg = <0x0 0x103>;
 			efficiency = <1638>;
@@ -256,7 +256,7 @@
 				1363200	88
 				1536000	112
 				1670400	151
-				1804800	194
+				2600000	194
 			>;
 			idle-cost-data = <
 				20 16 12 8
@@ -271,7 +271,7 @@
 				1555200	3532
 				1804800	5038
 				1996000	6624
-				2016000	6688
+				2600000	6688
 			>;
 			idle-cost-data = <
 				100 80 60 40
@@ -285,7 +285,7 @@
 				1363200	28
 				1536000	35
 				1670400	43
-				1804800	54
+				2600000	54
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -300,7 +300,7 @@
 				1555200	233
 				1804800	292
 				1996000	374
-				2016000	377
+				2600000	377
 			>;
 			idle-cost-data = <
 				4 3 2 1
