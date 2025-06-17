@@ -20,16 +20,12 @@ make O=/home/skye/bomb/out $BUILD_ENV channel_defconfig
 echo "*****************************************"
 echo "*****************************************"
 
-make -j12 O=/home/skye/bomb/out $BUILD_ENV dtbs
-DTB_OUT="/home/skye/bomb/out/arch/arm64/boot/dts/vendor/qcom"
-cat $DTB_OUT/*.dtb > /home/skye/bomb/AnyKernel3/channel/dtb
-
-make -j12 O=/home/skye/bomb/out $KERNEL_MAKE_ENV $BUILD_ENV Image
-IMAGE="/home/skye/bomb/out/arch/arm64/boot/Image"
+make -j12 O=/home/skye/bomb/out $KERNEL_MAKE_ENV $BUILD_ENV Image.gz-dtb
+IMAGE="/home/skye/bomb/out/arch/arm64/boot/Image.gz-dtb"
 echo "**Build outputs**"
 ls /home/skye/bomb/out/arch/arm64/boot
 echo "**Build outputs**"
-cp $IMAGE /home/skye/bomb/AnyKernel3/channel/Image
+cp $IMAGE /home/skye/bomb/AnyKernel3/channel/Image.gz-dtb
 
 cd /home/skye/bomb/AnyKernel3/channel
 rm *.zip
