@@ -17,15 +17,23 @@ rm -rf .local
 #make O=/home/skye/bomb/out clean
 make O=/home/skye/bomb/out $BUILD_ENV channel_defconfig
 
-echo "*****************************************"
-echo "*****************************************"
 
+echo "*****************************************"
 make -j12 O=/home/skye/bomb/out $KERNEL_MAKE_ENV $BUILD_ENV Image.gz-dtb
 IMAGE="/home/skye/bomb/out/arch/arm64/boot/Image.gz-dtb"
+cp $IMAGE /home/skye/bomb/AnyKernel3/channel/Image.gz-dtb
+echo "*****************************************"
+cp /home/skye/bomb/out/arch/arm64/boot/dts/qcom/*.dtbo .
+python3 $(pwd)/scripts/mkdtboimg.py create dtbo.img sdm632-channel-evt-overlay.dtbo sdm632-channel-dvt2-overlay.dtbo sdm632-channel-pvt-overlay.dtbo sdm632-channel-pvta-overlay.dtbo sdm632-channel-pvtb-overlay.dtbo sdm632-channel-pvtc-overlay.dtbo sdm632-channel-na-evt-overlay.dtbo sdm632-channel-na-dvt1b-overlay.dtbo sdm632-channel-tmo-dvt-overlay.dtbo
+echo "*****************************************"
+echo "***********DTBODTBODBTODTBO**************"
+cp ./dtbo.img /home/skye/bomb/AnyKernel3/channel/dtbo.img
+rm -rf ./dtbo.img
+rm -rf ./*.dtbo
+
 echo "**Build outputs**"
 ls /home/skye/bomb/out/arch/arm64/boot
 echo "**Build outputs**"
-cp $IMAGE /home/skye/bomb/AnyKernel3/channel/Image.gz-dtb
 
 cd /home/skye/bomb/AnyKernel3/channel
 rm *.zip
