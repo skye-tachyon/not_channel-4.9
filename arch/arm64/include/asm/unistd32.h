@@ -811,6 +811,8 @@ __SYSCALL(__NR_preadv2, compat_sys_preadv2)
 __SYSCALL(__NR_pwritev2, compat_sys_pwritev2)
 #define __NR_pidfd_send_signal 424
 __SYSCALL(__NR_pidfd_send_signal, sys_pidfd_send_signal)
+#define __NR_move_mount 429
+__SYSCALL(__NR_move_mount, sys_move_mount)
 #define __NR_pidfd_open 434
 __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
 #define __NR_close_range 436
