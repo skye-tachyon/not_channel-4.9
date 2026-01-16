@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build script – Aurora Kernel (channel)
+# Build script – not Kernel (channel) - Kanged script from Sanders-Revived Aurora kernel
 # Moto G5s Plus
 #
 
@@ -23,10 +23,10 @@ AK3_DIR="$(pwd)/android/AnyKernel3"
 # ===== Output =====
 OUT_DIR="$(pwd)/out"
 BOOT_DIR="$OUT_DIR/arch/arm64/boot"
-KERNEL_IMG="$BOOT_DIR/Image.gz"
+KERNEL_IMG="$BOOT_DIR/Image.gz-dtb"
 
 # ===== Zip =====
-ZIPNAME="Aurora-Kernel-${DEVICE}-$(date '+%Y%m%d-%H%M')"
+ZIPNAME="not_Kernel-${DEVICE}-$(date '+%Y%m%d-%H%M')"
 if test -z "$(git rev-parse --show-cdup 2>/dev/null)" &&
    head=$(git rev-parse --verify HEAD 2>/dev/null); then
     ZIPNAME="${ZIPNAME}-$(echo "$head" | cut -c1-8)"
@@ -73,14 +73,20 @@ make O=out ARCH=arm64 $DEFCONFIG
 echo "[*] Starting compilation..."
 make -j$(nproc --all) O=out ARCH=arm64 \
     CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm \
+    CLANG_TRIPLE=aarch64-linux-gnu- \
+    CLANG_TRIPLE_ARM32=arm-linux-gnu- \
+    TARGET_BUILD_VARIANT=user \
+    CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
+    KCFLAGS=-w \
     OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
     CROSS_COMPILE=aarch64-linux-gnu- \
     CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-    LLVM=1 LLVM_IAS=1 Image.gz
+    DTC_EXT=$(pwd)/tools/dtc \
+    LLVM=1 LLVM_IAS=1 Image.gz-dtb
 
 # ===== Check compilation =====
 if ! [ -f "$KERNEL_IMG" ]; then
-    echo "[!] Compilation failed – Image.gz not found"
+    echo "[!] Compilation failed – Image.gz-dtb not found"
     exit 1
 fi
 
@@ -93,6 +99,17 @@ git clone -q -b "$AK3_BRANCH" "$AK3_REPO" AnyKernel3 || exit 1
 
 # Copy the kernel image to AnyKernel3
 cp "$KERNEL_IMG" AnyKernel3
+
+cp out/arch/arm64/boot/dts/qcom/*.dtbo .
+
+
+python3 $(pwd)/scripts/mkdtboimg.py create dtbo.img sdm632-channel-evt-overlay.dtbo sdm632-channel-dvt2-overlay.dtbo sdm632-channel-pvt-overlay.dtbo sdm632-channel-pvta-overlay.dtbo sdm632-channel-pvtb-overlay.dtbo sdm632-channel-pvtc-overlay.dtbo sdm632-channel-na-evt-overlay.dtbo sdm632-channel-na-dvt1b-overlay.dtbo sdm632-channel-tmo-dvt-overlay.dtbo
+echo "***********DTBODTBODBTODTBO**************"
+
+cp ./dtbo.img AnyKernel3/dtbo.img
+
+rm -rf ./dtbo.img
+rm -rf ./*.dtbo
 
 # Remove boot output folder (Supra style)
 rm -rf out/arch/arm64/boot
