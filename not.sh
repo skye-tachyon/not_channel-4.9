@@ -26,7 +26,7 @@ BOOT_DIR="$OUT_DIR/arch/arm64/boot"
 KERNEL_IMG="$BOOT_DIR/Image.gz-dtb"
 
 # ===== Zip =====
-ZIPNAME="not_Kernel-${DEVICE}-$(date '+%Y%m%d-%H%M')"
+ZIPNAME="not-CI-$(date '+%Y%m%d-%H%M')-${DEVICE}"
 if test -z "$(git rev-parse --show-cdup 2>/dev/null)" &&
    head=$(git rev-parse --verify HEAD 2>/dev/null); then
     ZIPNAME="${ZIPNAME}-$(echo "$head" | cut -c1-8)"
