@@ -238,4 +238,3 @@ cirrus_playback-objs = msm-cirrus-playback.o
 endif
 
 # inject some build related information
-DEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"
