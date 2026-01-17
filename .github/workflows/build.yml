@@ -53,8 +53,7 @@ jobs:
            | Clang version: AOSP Clang 18.0.1
            | Build Date: `date +'%d %B %Y'`
            | Build commit hash: $gitsha1
-           | SusFS version: v1.5.7
-           | KernelSU version: 12701
+           | KernelSU version: 33333
            | SELinux: Enforcing" >> buildDetails.txt
           buildDetails="`cat buildDetails.txt`"
           zip_file=$(ls not-CI-*.zip)
