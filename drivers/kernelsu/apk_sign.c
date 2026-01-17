@@ -17,11 +17,22 @@
 #include "apk_sign.h"
 #include "klog.h" // IWYU pragma: keep
 #include "kernel_compat.h"
-
+#include "manager_sign.h"
 
 struct sdesc {
 	struct shash_desc shash;
 	char ctx[];
+};
+
+static apk_sign_key_t apk_sign_keys[] = {
+	{ EXPECTED_SIZE_OFFICIAL, EXPECTED_HASH_OFFICIAL }, // Official
+	{ EXPECTED_SIZE_RSUNTK, EXPECTED_HASH_RSUNTK }, // RKSU
+	{ EXPECTED_SIZE_5EC1CFF, EXPECTED_HASH_5EC1CFF }, // MKSU
+	{ EXPECTED_SIZE_KOWX712, EXPECTED_HASH_KOWX712 }, // KowSU
+	{ EXPECTED_SIZE_XX, EXPECTED_HASH_XX }, // BackslashXXKSU
+#ifdef EXPECTED_SIZE
+	{ EXPECTED_SIZE, EXPECTED_HASH }, // Custom
+#endif
 };
 
 static struct sdesc *init_sdesc(struct crypto_shash *alg)
@@ -30,7 +41,7 @@ static struct sdesc *init_sdesc(struct crypto_shash *alg)
 	int size;
 
 	size = sizeof(struct shash_desc) + crypto_shash_descsize(alg);
-	sdesc = kmalloc(size, GFP_KERNEL);
+	sdesc = kzalloc(size, GFP_KERNEL);
 	if (!sdesc)
 		return ERR_PTR(-ENOMEM);
 	sdesc->shash.tfm = alg;
@@ -71,9 +82,11 @@ static int ksu_sha256(const unsigned char *data, unsigned int datalen,
 	return ret;
 }
 
-static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset,
-			unsigned expected_size, const char *expected_sha256)
+static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset)
 {
+	int i;
+	apk_sign_key_t sign_key;
+
 	ksu_kernel_read_compat(fp, size4, 0x4, pos); // signer-sequence length
 	ksu_kernel_read_compat(fp, size4, 0x4, pos); // signer length
 	ksu_kernel_read_compat(fp, size4, 0x4, pos); // signed data length
@@ -89,7 +102,11 @@ static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset,
 	ksu_kernel_read_compat(fp, size4, 0x4, pos); // certificate length
 	*offset += 0x4 * 2;
 
-	if (*size4 == expected_size) {
+	for (i = 0; i < ARRAY_SIZE(apk_sign_keys); i++) {
+		sign_key = apk_sign_keys[i];
+
+		if (*size4 != sign_key.size)
+			continue;
 		*offset += *size4;
 
 #define CERT_MAX_LENGTH 1024
@@ -100,7 +117,7 @@ static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset,
 		}
 		ksu_kernel_read_compat(fp, cert, *size4, pos);
 		unsigned char digest[SHA256_DIGEST_SIZE];
-		if (IS_ERR(ksu_sha256(cert, *size4, digest))) {
+		if (ksu_sha256(cert, *size4, digest) < 0) {
 			pr_info("sha256 error\n");
 			return false;
 		}
@@ -110,8 +127,8 @@ static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset,
 
 		bin2hex(hash_str, digest, SHA256_DIGEST_SIZE);
 		pr_info("sha256: %s, expected: %s\n", hash_str,
-			expected_sha256);
-		if (strcmp(expected_sha256, hash_str) == 0) {
+			sign_key.sha256);
+		if (strcmp(sign_key.sha256, hash_str) == 0) {
 			return true;
 		}
 	}
@@ -171,9 +188,7 @@ static bool has_v1_signature_file(struct file *fp)
 	return false;
 }
 
-static __always_inline bool check_v2_signature(char *path,
-					       unsigned expected_size,
-					       const char *expected_sha256)
+static __always_inline bool check_v2_signature(char *path)
 {
 	unsigned char buffer[0x11] = { 0 };
 	u32 size4;
@@ -245,8 +260,7 @@ static __always_inline bool check_v2_signature(char *path,
 		if (id == 0x7109871au) {
 			v2_signing_blocks++;
 			v2_signing_valid =
-				check_block(fp, &size4, &pos, &offset,
-					    expected_size, expected_sha256);
+				check_block(fp, &size4, &pos, &offset);
 		} else if (id == 0xf05368c0u) {
 			// http://aospxref.com/android-14.0.0_r2/xref/frameworks/base/core/java/android/util/apk/ApkSignatureSchemeV3Verifier.java#73
 			v3_signing_exist = true;
@@ -314,7 +328,7 @@ module_param_cb(ksu_debug_manager_uid, &expected_size_ops,
 
 #endif
 
-bool ksu_is_manager_apk(char *path)
+bool is_manager_apk(char *path)
 {
-	return check_v2_signature(path, EXPECTED_NEXT_SIZE, EXPECTED_NEXT_HASH);
+	return check_v2_signature(path);
 }
