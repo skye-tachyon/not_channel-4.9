@@ -22,6 +22,10 @@
 #endif
 #include "ksud.h"
 #include "supercalls.h"
+#include "ksu.h"
+#include "file_wrapper.h"
+
+struct cred *ksu_cred;
 
 #ifdef CONFIG_KSU_MANUAL_HOOK
 extern void __init ksu_lsm_hook_init(void);
@@ -30,8 +34,11 @@ extern void __init ksu_lsm_hook_init(void);
 int __init kernelsu_init(void)
 {
 #ifndef DDK_ENV
-	pr_info("Initialized on: %s (%s) with driver version: %u\n",
-		UTS_RELEASE, UTS_MACHINE, KSU_VERSION);
+	pr_info("KernelSU driver informations:\n");
+	pr_info("- UTS_RELEASE = %s\n", UTS_RELEASE);
+	pr_info("- UTS_MACHINE = %s\n", UTS_MACHINE);
+	pr_info("- KSU_VERSION = %u\n", KSU_VERSION);
+	pr_info("- KSU_BRANCH  = %s\n", KSU_BRANCH);
 #endif
 
 #ifdef CONFIG_KSU_DEBUG
@@ -43,6 +50,11 @@ int __init kernelsu_init(void)
 	pr_alert("**     NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE    **");
 	pr_alert("*************************************************************");
 #endif
+
+	ksu_cred = prepare_creds();
+	if (!ksu_cred) {
+		pr_err("prepare cred failed!\n");
+	}
 
 	ksu_feature_init();
 
@@ -63,6 +75,8 @@ int __init kernelsu_init(void)
 
 	ksu_ksud_init();
 
+	ksu_file_wrapper_init();
+
 #ifdef MODULE
 #ifndef CONFIG_KSU_DEBUG
 	kobject_del(&THIS_MODULE->mkobj.kobj);
@@ -71,7 +85,9 @@ int __init kernelsu_init(void)
 	return 0;
 }
 
-#ifdef CONFIG_KSU_SYSCALL_HOOK
+#if defined(CONFIG_KSU_SYSCALL_HOOK) ||                                        \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) &&                      \
+	 defined(CONFIG_KSU_MANUAL_HOOK))
 extern void ksu_observer_exit(void);
 #endif
 
@@ -81,7 +97,9 @@ void kernelsu_exit(void)
 
 	ksu_throne_tracker_exit();
 
-#ifdef CONFIG_KSU_SYSCALL_HOOK
+#if defined(CONFIG_KSU_SYSCALL_HOOK) ||                                        \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) &&                      \
+	 defined(CONFIG_KSU_MANUAL_HOOK))
 	ksu_observer_exit();
 #endif
 
@@ -98,6 +116,10 @@ void kernelsu_exit(void)
 	ksu_supercalls_exit();
 
 	ksu_feature_exit();
+
+	if (ksu_cred) {
+		put_cred(ksu_cred);
+	}
 }
 
 module_init(kernelsu_init);

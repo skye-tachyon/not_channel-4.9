@@ -1,15 +1,6 @@
 #include <linux/kprobes.h>
-#include <linux/task_work.h>
 #include <linux/compat.h>
 #include <linux/workqueue.h>
-
-#include "arch.h"
-#include "kp_hook.h"
-#include "ksu.h"
-#include "ksud.h"
-#include "kernel_compat.h"
-#include "supercalls.h"
-#include "kp_util.h"
 
 #define DECL_KP(name, sym, pre)                                                \
 	struct kprobe name = {                                                 \
@@ -35,13 +26,13 @@ static int sys_execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
 
 	if (!filename_user)
 		return 0;
-	if (!ksu_strncpy_retry(filename_user, path, 32, false))
+	if (!ksu_retry_filename_access(filename_user, path, 32, false))
 		return 0;
 
 	filename_in.name = path;
 	filename_p = &filename_in;
-	return ksu_handle_execveat_ksud(AT_FDCWD, &filename_p, &argv, NULL,
-					NULL);
+	return ksu_handle_execveat_ksud((int *)AT_FDCWD, &filename_p, &argv,
+					NULL, NULL);
 }
 
 static int sys_read_handler_pre(struct kprobe *p, struct pt_regs *regs)
@@ -49,7 +40,7 @@ static int sys_read_handler_pre(struct kprobe *p, struct pt_regs *regs)
 	struct pt_regs *real_regs = PT_REAL_REGS(regs);
 	unsigned int fd = PT_REGS_PARM1(real_regs);
 	char __user **buf_ptr = (char __user **)&PT_REGS_PARM2(real_regs);
-	size_t count_ptr = (size_t *)&PT_REGS_PARM3(real_regs);
+	size_t *count_ptr = (size_t *)&PT_REGS_PARM3(real_regs);
 
 	return ksu_handle_sys_read(fd, buf_ptr, count_ptr);
 }
@@ -139,53 +130,19 @@ void kp_handle_ksud_exit(void)
 }
 
 // supercalls.c
-struct ksu_install_fd_tw {
-	struct callback_head cb;
-	int __user *outp;
-};
 
-static void ksu_install_fd_tw_func(struct callback_head *cb)
-{
-	struct ksu_install_fd_tw *tw =
-		container_of(cb, struct ksu_install_fd_tw, cb);
-	int fd = ksu_install_fd();
-	pr_info("[%d] install ksu fd: %d\n", current->pid, fd);
-
-	if (copy_to_user(tw->outp, &fd, sizeof(fd))) {
-		pr_err("install ksu fd reply err\n");
-		do_close_fd(fd);
-	}
-
-	kfree(tw);
-}
+extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
+				 void __user **arg);
 
 static int reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
 	struct pt_regs *real_regs = PT_REAL_REGS(regs);
 	int magic1 = (int)PT_REGS_PARM1(real_regs);
 	int magic2 = (int)PT_REGS_PARM2(real_regs);
-	unsigned long arg4;
+	void __user **arg = (void __user **)&PT_REGS_SYSCALL_PARM4(real_regs);
 
-	// Check if this is a request to install KSU fd
-	if (magic1 == KSU_INSTALL_MAGIC1 && magic2 == KSU_INSTALL_MAGIC2) {
-		struct ksu_install_fd_tw *tw;
-
-		arg4 = (unsigned long)PT_REGS_SYSCALL_PARM4(real_regs);
-
-		tw = kzalloc(sizeof(*tw), GFP_ATOMIC);
-		if (!tw)
-			return 0;
-
-		tw->outp = (int __user *)arg4;
-		tw->cb.func = ksu_install_fd_tw_func;
-
-		if (task_work_add(current, &tw->cb, TWA_RESUME)) {
-			kfree(tw);
-			pr_warn("install fd add task_work failed\n");
-		}
-	}
-
-	return 0;
+	// cmd is not really used here, so we NULL!
+	return ksu_handle_sys_reboot(magic1, magic2, NULL, arg);
 }
 
 static DECL_KP(reboot_kp, REBOOT_SYMBOL, reboot_handler_pre);

@@ -1,23 +1,14 @@
-#include "linux/compiler.h"
-#include "linux/cred.h"
-#include "linux/printk.h"
-#include "selinux/selinux.h"
+#include <linux/compiler.h>
+#include <linux/cred.h>
+#include <linux/printk.h>
 #include <linux/spinlock.h>
 #include <linux/kprobes.h>
 #include <linux/tracepoint.h>
-#include <asm/syscall.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
-#include <trace/events/syscalls.h>
+#include <asm/syscall.h>
 
-#include "allowlist.h"
-#include "arch.h"
-#include "klog.h" // IWYU pragma: keep
-#include "syscall_handler.h"
-#include "sucompat.h"
-#include "setuid_hook.h"
-#include "selinux/selinux.h"
-#include "kp_util.h"
+#include <trace/events/syscalls.h>
 
 // Tracepoint registration count management
 // == 1: just us
@@ -61,7 +52,7 @@ void ksu_unmark_all_process(void)
 	pr_info("hook_manager: unmark all user process done!\n");
 }
 
-static void ksu_mark_running_process_locked()
+static void ksu_mark_running_process_locked(void)
 {
 	struct task_struct *p, *t;
 	read_lock(&tasklist_lock);
@@ -91,7 +82,7 @@ static void ksu_mark_running_process_locked()
 	read_unlock(&tasklist_lock);
 }
 
-void ksu_mark_running_process()
+void ksu_mark_running_process(void)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&tracepoint_reg_lock, flags);
@@ -116,12 +107,9 @@ int ksu_get_task_mark(pid_t pid)
 		get_task_struct(task);
 		rcu_read_unlock();
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		marked = test_task_syscall_work(task, SYSCALL_TRACEPOINT) ? 1 :
-									    0;
+		marked = test_task_syscall_work(task, SYSCALL_TRACEPOINT) ? 1 : 0;
 #else
-		marked = test_tsk_thread_flag(task, TIF_SYSCALL_TRACEPOINT) ?
-				 1 :
-				 0;
+		marked = test_tsk_thread_flag(task, TIF_SYSCALL_TRACEPOINT) ? 1 : 0;
 #endif
 		put_task_struct(task);
 	} else {
@@ -253,13 +241,18 @@ int ksu_handle_init_mark_tracker(const char __user **filename_user)
 
 	if (unlikely(!filename_user))
 		return 0;
-	if (!ksu_strncpy_retry(filename_user, path, sizeof(path), false))
+	if (!ksu_retry_filename_access(filename_user, path, sizeof(path),
+				       false))
 		return 0;
 
-	if (likely(strstr(path, "/app_process") == NULL &&
-		   strstr(path, "/adbd") == NULL &&
-		   strstr(path, "/ksud") == NULL)) {
-		pr_info("hook_manager: unmark %d exec %s", current->pid, path);
+	if (unlikely(strcmp(path, KSUD_PATH) == 0)) {
+		pr_info("hook_manager: escape to root for init executing ksud: %d\n",
+			current->pid);
+		escape_to_root_for_init();
+	} else if (likely(strstr(path, "/app_process") == NULL &&
+			  strstr(path, "/adbd") == NULL)) {
+		pr_info("hook_manager: unmark %d exec %s\n", current->pid,
+			path);
 		ksu_clear_task_tracepoint_flag_if_needed(current);
 	}
 
@@ -269,8 +262,7 @@ int ksu_handle_init_mark_tracker(const char __user **filename_user)
 #ifdef CONFIG_HAVE_SYSCALL_TRACEPOINTS
 static int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid)
 {
-       return ksu_handle_setuid_common(ruid, current_uid().val, euid,
-                                       current_euid().val);
+	return ksu_handle_setuid_common(ruid, current_uid().val, euid);
 }
 
 // Generic sys_enter handler that dispatches to specific handlers

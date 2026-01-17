@@ -6,12 +6,6 @@
 #include <linux/uidgid.h>
 #include <linux/string.h>
 
-#include "klog.h" // IWYU pragma: keep
-#include "kernel_compat.h"
-#include "ksud.h"
-#include "setuid_hook.h"
-#include "throne_tracker.h"
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) ||                           \
 	defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
 static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
@@ -67,12 +61,14 @@ static int ksu_inode_rename(struct inode *old_inode, struct dentry *old_dentry,
 		new_dentry->d_iname, buf);
 
 	/*
-	 * RKSU: track_throne(true) only occurs when
-	 * on_boot_completed. So let's make it once-lock.
+	 * RKSU note:
+	 * track_throne(true) only occurs on on_boot_completed event.
+	 * When using this LSM, we must handle it here, else it returns
+	 * ENOENT (-2).
 	 */
-	static bool do_once = false;
-	if (ksu_boot_completed && !do_once) {
-		do_once = true;
+	static bool did = false;
+	if (ksu_boot_completed && !did) {
+		did = true;
 		track_throne(true);
 		return 0;
 	}
@@ -88,13 +84,7 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old,
 	if (!new || !old)
 		return 0;
 
-	kuid_t old_uid = old->uid;
-	kuid_t old_euid = old->euid;
-	kuid_t new_uid = new->uid;
-	kuid_t new_euid = new->euid;
-
-	return ksu_handle_setuid_common(new_uid.val, old_uid.val, new_euid.val,
-					old_euid.val);
+	return ksu_handle_setuid_common(new->uid.val, old->uid.val, new->euid.val);
 }
 
 static struct security_hook_list ksu_hooks[] = {
