@@ -24,6 +24,7 @@ AK3_DIR="$(pwd)/android/AnyKernel3"
 OUT_DIR="$(pwd)/out"
 BOOT_DIR="$OUT_DIR/arch/arm64/boot"
 KERNEL_IMG="$BOOT_DIR/Image.gz-dtb"
+rm -rf *channel-*.zip
 
 # ===== Zip =====
 ZIPNAME="not-CI-$(date '+%Y%m%d-%H%M')-${DEVICE}"
