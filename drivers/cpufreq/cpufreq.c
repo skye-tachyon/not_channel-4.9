@@ -640,6 +640,22 @@ unsigned int cpufreq_driver_resolve_freq(struct cpufreq_policy *policy,
 }
 EXPORT_SYMBOL_GPL(cpufreq_driver_resolve_freq);
 
+unsigned int cpufreq_policy_transition_delay_us(struct cpufreq_policy *policy)
+{
+	unsigned int latency;
+
+	if (policy->transition_delay_us)
+		return policy->transition_delay_us;
+
+	latency = policy->cpuinfo.transition_latency / NSEC_PER_USEC;
+	if (latency)
+		/* Give a 50% breathing room between updates */
+		return latency + (latency >> 1);
+
+	return USEC_PER_MSEC;
+}
+EXPORT_SYMBOL_GPL(cpufreq_policy_transition_delay_us);
+
 /*********************************************************************
  *                          SYSFS INTERFACE                          *
  *********************************************************************/
