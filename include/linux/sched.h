@@ -2892,6 +2892,11 @@ static inline void set_wake_up_idle(bool enabled)
 		current->flags &= ~PF_WAKE_UP_IDLE;
 }
 
+#ifdef CONFIG_SMP
+/* Returns effective CPU energy utilization, as seen by the scheduler */
+unsigned long sched_cpu_util(int cpu);
+#endif /* CONFIG_SMP */
+
 /*
  * Do not use outside of architecture code which knows its limitations.
  *
@@ -3050,6 +3055,8 @@ extern int sched_setscheduler(struct task_struct *, int,
 extern int sched_setscheduler_nocheck(struct task_struct *, int,
 				      const struct sched_param *);
 extern int sched_setattr(struct task_struct *,
+			 const struct sched_attr *);
+extern int sched_setattr_nocheck(struct task_struct *,
 			 const struct sched_attr *);
 extern struct task_struct *idle_task(int cpu);
 /**
@@ -4073,6 +4080,8 @@ static inline unsigned long rlimit_max(unsigned int limit)
 #define SCHED_CPUFREQ_RT_DL	(SCHED_CPUFREQ_RT | SCHED_CPUFREQ_DL)
 
 #ifdef CONFIG_CPU_FREQ
+struct cpufreq_policy;
+
 struct update_util_data {
        void (*func)(struct update_util_data *data, u64 time, unsigned int flags);
 };
@@ -4081,6 +4090,18 @@ void cpufreq_add_update_util_hook(int cpu, struct update_util_data *data,
                        void (*func)(struct update_util_data *data, u64 time,
 				    unsigned int flags));
 void cpufreq_remove_update_util_hook(int cpu);
+bool cpufreq_this_cpu_can_update(struct cpufreq_policy *policy);
+
+static inline unsigned long map_util_freq(unsigned long util,
+					unsigned long freq, unsigned long cap)
+{
+	return freq * util / cap;
+}
+
+static inline __maybe_unused unsigned long map_util_perf(unsigned long util)
+{
+	return util + (util >> 2);
+}
 #endif /* CONFIG_CPU_FREQ */
 
 extern DEFINE_PER_CPU_READ_MOSTLY(int, sched_load_boost);

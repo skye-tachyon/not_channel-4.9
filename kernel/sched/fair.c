@@ -7727,7 +7727,8 @@ static unsigned long cpu_util_next(int cpu, struct task_struct *p, int dst_cpu)
 static long
 compute_energy_simple(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 {
-	long util, max_util, sum_util, energy = 0;
+	long util, max_util, cpu_util, sum_util, energy = 0;
+	unsigned long min, max;
 	int cpu;
 
 	for (; pd; pd = pd->next) {
@@ -7743,9 +7744,36 @@ compute_energy_simple(struct task_struct *p, int dst_cpu, struct perf_domain *pd
 		 * by compute_energy_simple().
 		 */
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_online_mask) {
-			util = cpu_util_next(cpu, p, dst_cpu);
-			max_util = max(util, max_util);
-			sum_util += util;
+			unsigned int util_cfs;
+
+			util_cfs = cpu_util_next(cpu, p, dst_cpu);
+
+			/*
+			 * Busy time computation: utilization clamping is not
+			 * required since the ratio (sum_util / cpu_capacity)
+			 * is already enough to scale the EM reported power
+			 * consumption at the (eventually clamped) cpu_capacity.
+			 */
+			sum_util += effective_cpu_util(cpu, util_cfs, NULL, NULL);
+
+			/*
+			 * Performance domain frequency: utilization clamping
+			 * must be considered since it affects the selection
+			 * of the performance domain frequency.
+			 * NOTE: in case RT tasks are running, by default the
+			 * FREQUENCY_UTIL's utilization can be max OPP.
+			 */
+			cpu_util = effective_cpu_util(cpu, util_cfs, &min, &max);
+
+			/* Task's uclamp can modify min and max value */
+			if (uclamp_is_used()) {
+				min = max(min, uclamp_eff_value(p, UCLAMP_MIN));
+
+				max = max(max, uclamp_eff_value(p, UCLAMP_MAX));
+			}
+
+			cpu_util = sugov_effective_cpu_perf(cpu, cpu_util, min, max);
+			max_util = max(max_util, cpu_util);
 		}
 
 		energy += em_pd_energy(pd->em_pd, max_util, sum_util);

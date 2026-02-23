@@ -607,6 +607,11 @@ struct rt_rq {
 #endif
 };
 
+static inline bool rt_rq_is_runnable(struct rt_rq *rt_rq)
+{
+	return rt_rq->rt_queued && rt_rq->rt_nr_running;
+}
+
 /* Deadline class' related fields in a runqueue */
 struct dl_rq {
 	/* runqueue is an rbtree, ordered by deadline */
@@ -640,6 +645,30 @@ struct dl_rq {
 #else
 	struct dl_bw dl_bw;
 #endif
+	/*
+	 * "Active utilization" for this runqueue: increased when a
+	 * task wakes up (becomes TASK_RUNNING) and decreased when a
+	 * task blocks
+	 */
+	u64			running_bw;
+
+	/*
+	 * Utilization of the tasks "assigned" to this runqueue (including
+	 * the tasks that are in runqueue and the tasks that executed on this
+	 * CPU and blocked). Increased when a task moves to this runqueue, and
+	 * decreased when the task moves away (migrates, changes scheduling
+	 * policy, or terminates).
+	 * This is needed to compute the "inactive utilization" for the
+	 * runqueue (inactive utilization = this_bw - running_bw).
+	 */
+	u64			this_bw;
+	u64			extra_bw;
+
+	/*
+	 * Inverse of the fraction of CPU utilization that can be reclaimed
+	 * by the GRUB algorithm.
+	 */
+	u64			bw_ratio;
 };
 
 #ifdef CONFIG_SMP
@@ -873,6 +902,8 @@ struct rq {
 
 	struct list_head cfs_tasks;
 
+	struct sched_avg	avg_rt;
+	struct sched_avg	avg_dl;
 	u64 rt_avg;
 	u64 age_stamp;
 	u64 idle_stamp;
@@ -1763,6 +1794,9 @@ extern struct dl_bandwidth def_dl_bandwidth;
 extern void init_dl_bandwidth(struct dl_bandwidth *dl_b, u64 period, u64 runtime);
 extern void init_dl_task_timer(struct sched_dl_entity *dl_se);
 
+#define BW_SHIFT		20
+#define BW_UNIT			(1 << BW_SHIFT)
+#define RATIO_SHIFT		8
 unsigned long to_ratio(u64 period, u64 runtime);
 
 extern void init_entity_runnable_average(struct sched_entity *se);
@@ -2016,6 +2050,17 @@ static inline unsigned long __cpu_util(int cpu, int delta)
 static inline unsigned long cpu_util(int cpu)
 {
 	return __cpu_util(cpu, 0);
+}
+
+static inline unsigned long cpu_util_irq(struct rq *rq)
+{
+	return 0;
+}
+
+static inline
+unsigned long scale_irq_capacity(unsigned long util, unsigned long irq, unsigned long max)
+{
+	return util;
 }
 
 struct sched_walt_cpu_load {
@@ -2479,6 +2524,23 @@ static inline void cpufreq_update_this_cpu(struct rq *rq, unsigned int flags) {}
 #ifdef CONFIG_UCLAMP_TASK
 unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
 
+static inline unsigned long uclamp_rq_get(struct rq *rq,
+					  enum uclamp_id clamp_id)
+{
+	return READ_ONCE(rq->uclamp[clamp_id].value);
+}
+
+static inline void uclamp_rq_set(struct rq *rq, enum uclamp_id clamp_id,
+				 unsigned int value)
+{
+	WRITE_ONCE(rq->uclamp[clamp_id].value, value);
+}
+
+static inline bool uclamp_rq_is_idle(struct rq *rq)
+{
+	return rq->uclamp_flags & UCLAMP_FLAG_IDLE;
+}
+
 /**
  * uclamp_rq_util_with - clamp @util with @rq and @p effective uclamp values.
  * @rq:		The rq to clamp against. Must not be NULL.
@@ -2601,6 +2663,55 @@ static inline bool uclamp_boosted(struct task_struct *p)
 #else /* arch_scale_freq_capacity */
 #define arch_scale_freq_invariant()	(false)
 #endif
+
+extern struct cpumask min_cap_cpu_mask;
+#ifdef CONFIG_SMP
+static inline unsigned long cpu_util_cfs(struct rq *rq)
+{
+	unsigned long util = READ_ONCE(rq->cfs.avg.util_avg);
+
+	return util;
+}
+#endif
+
+#ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
+
+unsigned long effective_cpu_util(int cpu, unsigned long util_cfs,
+				 unsigned long *min,
+				 unsigned long *max);
+
+unsigned long sugov_effective_cpu_perf(int cpu, unsigned long actual,
+				 unsigned long min,
+				 unsigned long max);
+
+static inline unsigned long cpu_bw_dl(struct rq *rq)
+{
+	return (rq->dl.running_bw * SCHED_CAPACITY_SCALE) >> BW_SHIFT;
+}
+
+static inline unsigned long cpu_util_dl(struct rq *rq)
+{
+	return READ_ONCE(rq->avg_dl.util_avg);
+}
+
+static inline unsigned long cpu_util_rt(struct rq *rq)
+{
+	return READ_ONCE(rq->avg_rt.util_avg);
+}
+
+#else /* CONFIG_CPU_FREQ_GOV_SCHEDUTIL */
+unsigned long effective_cpu_util(int cpu, unsigned long util_cfs,
+                                 unsigned long *min,
+                                 unsigned long *max)
+{
+	return 0;
+}
+
+static inline unsigned long cpu_util_rt(struct rq *rq)
+{
+	return 0;
+}
+#endif /* CONFIG_CPU_FREQ_GOV_SCHEDUTIL */
 
 #ifdef CONFIG_SCHED_WALT
 
