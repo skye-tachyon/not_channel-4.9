@@ -58,8 +58,8 @@
 		 < 425000000   4 >,  /* SVS Plus  */
 		 < 525000000   5 >,  /* NOM       */
 		 < 625000000   6 >,  /* Nom Plus  */
-		 < 725000000   7 >,  /* Turbo     */
-		 < 800000000   7 >;  /* Turbo+    */
+		 < 775000000   7 >,  /* Turbo     */
+		 < 1114000000   7 >;  /* Turbo+    */
 };
 
 &thermal_zones {
@@ -1077,7 +1077,7 @@
 		/* TURBO LD0 */
 		qcom,gpu-pwrlevel@0 {
 			reg = <0>;
-			qcom,gpu-freq = <800000000>;
+			qcom,gpu-freq = <1114000000>;
 			qcom,bus-freq = <10>;
 			qcom,bus-min = <10>;
 			qcom,bus-max = <10>;
@@ -1086,7 +1086,7 @@
 		/* TURBO */
 		qcom,gpu-pwrlevel@1 {
 			reg = <1>;
-			qcom,gpu-freq = <725000000>;
+			qcom,gpu-freq = <775000000>;
 			qcom,bus-freq = <10>;
 			qcom,bus-min = <10>;
 			qcom,bus-max = <10>;
