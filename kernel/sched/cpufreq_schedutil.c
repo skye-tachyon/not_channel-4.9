@@ -243,8 +243,8 @@ static inline unsigned long apply_dvfs_headroom(unsigned long util, int cpu)
 	delta = capacity - util;
 	headroom = ((delta * delta) >> 12);
 
-	/* 10% of capacity threshold */
-	min_util = capacity / 10;
+	/* 30% of capacity threshold */
+	min_util = capacity / 30;
 
 	/* Suppress boosting below the threshold */
 	if (util < min_util)
