@@ -241,6 +241,7 @@ static struct mux_div_clk perf_cpussmux = {
 	},
 	.c = {
 		.dbg_name = "perf_cpussmux",
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		.ops = &clk_ops_mux_div_clk,
 		CLK_INIT(perf_cpussmux.c),
 	},
@@ -261,6 +262,7 @@ static struct mux_div_clk pwr_cpussmux = {
 	},
 	.c = {
 		.dbg_name = "pwr_cpussmux",
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		.ops = &clk_ops_mux_div_clk,
 		CLK_INIT(pwr_cpussmux.c),
 	},
