@@ -88,8 +88,8 @@ qcom,mdss-dsi-off-command = [
 	05 01 00 00 64 00 01 10];	/* enter sleep mode delay 50ms*/
 
 
-qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
-qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+qcom,mdss-dsi-on-command-state = "dsi_hs_mode";
+qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 
 qcom,mdss-dsi-cabc-ui-command = [15 01 00 00 05 00 02 55 01];
 qcom,mdss-dsi-cabc-ui-command-state = "dsi_hs_mode";
@@ -103,8 +103,7 @@ qcom,mdss-dsi-hbm-off-command = [39 01 00 00 00 00 02 51 FF];
 qcom,mdss-dsi-hbm-off-command-state = "dsi_hs_mode";
 qcom,mdss-dsi-hbm-type = "lcd-dcs-gpio";
 
-qcom,mdss-dsi-h-sync-pulse = <0>;
-qcom,mdss-dsi-traffic-mode = "burst_mode";
+qcom,mdss-dsi-traffic-mode = "non_burst_sync_pulse";
 qcom,mdss-dsi-bllp-eof-power-mode;
 qcom,mdss-dsi-bllp-power-mode;
 qcom,mdss-dsi-lane-0-state;
@@ -132,14 +131,13 @@ qcom,mdss-dsi-no-panel-on-read-support;
 qcom,mdss-dsi-lp11-lcdb-reset;
 qcom,mdss-panel-off-rst-disable;
 qcom,mdss-panel-reset-high;
-qcom,esd-check-enabled;
 qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 01 0A];
-qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
 qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 qcom,mdss-dsi-panel-status-value = <0x9C>;
 qcom,mdss-dsi-panel-status-read-length = <1>;
 qcom,mdss-dsi-panel-status-valid-params = <1>;
-qcom,mdss-dsi-panel-status-command-mode = "dsi_lp_mode";
+qcom,mdss-dsi-panel-status-command-mode = "dsi_hs_mode";
 
 
 qcom,panel-supply-entries {
