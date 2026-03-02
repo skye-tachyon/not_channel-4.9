@@ -38,6 +38,7 @@ static inline void boost_kick(int cpu)
 
 static void boost_kick_cpus(void)
 {
+#if 0
 	int i;
 	struct cpumask kick_mask;
 	u32 nr_running;
@@ -63,6 +64,7 @@ static void boost_kick_cpus(void)
 				boost_kick(i);
 		}
 	}
+#endif
 }
 
 int got_boost_kick(void)
