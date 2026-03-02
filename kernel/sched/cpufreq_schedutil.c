@@ -231,10 +231,20 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 static inline unsigned long apply_dvfs_headroom(unsigned long util, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
-	unsigned long delta, headroom, min_util;
+	unsigned long delta, headroom, min_util = capacity / 4;	/* 25% of capacity threshold */
 
+	/*
+	 * Skip boosting entirely for very low utilization (< 6.25%)
+	 */
+	if (likely(util < (capacity >> 4)))
+		return util;
+
+	 /*
+	 * Skip boosting if util is bigger or equal to capacity (>=1024)
+	 */
 	if (util >= capacity)
 		return util;
+
         /*
         * Quadratic taper the boosting at the top end as these are expensive
         * and we don't need that much of a big headroom as we approach max
@@ -243,11 +253,8 @@ static inline unsigned long apply_dvfs_headroom(unsigned long util, int cpu)
 	delta = capacity - util;
 	headroom = ((delta * delta) >> 12);
 
-	/* 30% of capacity threshold */
-	min_util = capacity / 30;
-
 	/* Suppress boosting below the threshold */
-	if (util < min_util)
+	if (unlikely(util < min_util))
 		headroom = (headroom * util * util) / (min_util * min_util);
 
 	return util + headroom;
