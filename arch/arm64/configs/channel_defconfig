@@ -1,7 +1,7 @@
 #
 # Linux/arm64 4.9.337 Not_Kernel Configuration
 #
-CONFIG_LOCALVERSION="-not"
+CONFIG_LOCALVERSION="-not:ファントム・タキオン"
 CONFIG_ARM64=y
 CONFIG_64BIT=y
 CONFIG_ARCH_PHYS_ADDR_T_64BIT=y
