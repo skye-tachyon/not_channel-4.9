@@ -930,7 +930,7 @@ static struct cpufreq_governor schedutil_gov = {
 };
 
 //#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
-#if 1
+#if 0
 struct cpufreq_governor *cpufreq_default_governor(void)
 {
 	return &schedutil_gov;

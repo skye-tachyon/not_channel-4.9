@@ -1326,7 +1326,7 @@ static struct cpufreq_governor walt_gov = {
 	.limits			= waltgov_limits,
 };
 
-#if 0
+#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
 struct cpufreq_governor *cpufreq_default_governor(void)
 {
 	return &walt_gov;
