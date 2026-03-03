@@ -929,7 +929,8 @@ static struct cpufreq_governor schedutil_gov = {
 	.limits			= sugov_limits,
 };
 
-#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+//#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+#if 1
 struct cpufreq_governor *cpufreq_default_governor(void)
 {
 	return &schedutil_gov;

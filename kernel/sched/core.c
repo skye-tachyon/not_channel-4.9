@@ -9214,7 +9214,6 @@ void __init sched_init(void)
 	for (i = 0; i < WAIT_TABLE_SIZE; i++)
 		init_waitqueue_head(bit_wait_table + i);
 
-	sched_boost_parse_dt();
 	init_clusters();
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
