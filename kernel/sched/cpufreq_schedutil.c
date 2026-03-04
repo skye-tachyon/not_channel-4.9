@@ -920,7 +920,7 @@ static void sugov_limits(struct cpufreq_policy *policy)
 }
 
 static struct cpufreq_governor schedutil_gov = {
-	.name			= "schedutil",
+	.name			= "sched-util",
 	.owner			= THIS_MODULE,
 	.init			= sugov_init,
 	.exit			= sugov_exit,
