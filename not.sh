@@ -96,7 +96,7 @@ echo "[+] Kernel compiled successfully"
 # ===== Prepare AnyKernel3 =====
 rm -rf AnyKernel3
 echo "[*] Cloning AnyKernel3 for $DEVICE"
-git clone -q -b "$AK3_BRANCH" "$AK3_REPO" AnyKernel3 || exit 1
+git clone -q -b "$AK3_BRANCH" "$AK3_REPO" --depth=1 AnyKernel3 || exit 1
 
 # Copy the kernel image to AnyKernel3
 cp "$KERNEL_IMG" AnyKernel3
