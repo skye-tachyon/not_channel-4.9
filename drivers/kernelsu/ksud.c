@@ -89,7 +89,6 @@ bool ksu_execveat_hook __read_mostly = true;
 bool ksu_input_hook __read_mostly = true;
 #endif
 
-u32 ksu_file_sid;
 void on_post_fs_data(void)
 {
 	static bool already_post_fs_data = false;
@@ -106,11 +105,6 @@ void on_post_fs_data(void)
 	ksu_observer_init();
 #endif
 	stop_input_hook();
-
-	ksu_file_sid = ksu_get_ksu_file_sid();
-	if (ksu_file_sid != 0) {
-		pr_info("got ksu_file context sid: %d\n", ksu_file_sid);
-	}
 }
 
 extern void ext4_unregister_sysfs(struct super_block *sb);
@@ -226,7 +220,40 @@ static struct callback_head on_post_fs_data_cb = {
 static inline void handle_second_stage(void)
 {
 	apply_kernelsu_rules();
+	cache_sid();
 	setup_ksu_cred();
+}
+
+static bool check_argv(struct user_arg_ptr argv, int index,
+		       const char *expected, char *buf, size_t buf_len)
+{
+	const char __user *p;
+	int argc;
+	long ret;
+
+	argc = count(argv, MAX_ARG_STRINGS);
+	if (argc <= index) {
+		return false;
+	}
+
+	p = get_user_arg_ptr(argv, index);
+	if (IS_ERR_OR_NULL(p)) {
+		if (PTR_ERR(p)) {
+			pr_err("check_argv: invalid user pointer, err: %ld\n",
+			       PTR_ERR(p));
+		}
+		return false;
+	}
+
+	ret = ksu_strncpy_from_user_nofault(buf, p, buf_len);
+	if (ret <= 0) {
+		pr_err("check_argv: failed to copy pointer, err: %ld\n", ret);
+		return false;
+	}
+
+	buf[buf_len - 1] = '\0';
+
+	return !strcmp(buf, expected);
 }
 
 // IMPORTANT NOTE: the call from execve_handler_pre WON'T provided correct value for envp and flags in GKI version
@@ -242,7 +269,7 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 	struct filename *filename;
 
 	static const char app_process[] = "/system/bin/app_process";
-	static bool first_app_process = true;
+	static bool first_zygote = true;
 
 	/* This applies to versions Android 10+ */
 	static const char system_bin_init[] = "/system/bin/init";
@@ -258,52 +285,38 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 		return 0;
 	}
 
+#ifdef CONFIG_KSU_MANUAL_HOOK
+	if (current->pid != 1 && is_init(get_current_cred())) {
+		if (unlikely(strcmp(filename->name, KSUD_PATH) == 0)) {
+			pr_info("escape to root for init executing ksud: %d\n",
+				current->pid);
+			escape_to_root_for_init();
+		}
+	}
+#endif
+
 	if (unlikely(!memcmp(filename->name, system_bin_init,
 			     sizeof(system_bin_init) - 1) &&
 		     argv)) {
-		// /system/bin/init executed
-		int argc = count(*argv, MAX_ARG_STRINGS);
-		pr_info("/system/bin/init argc: %d\n", argc);
-		if (argc > 1 && !init_second_stage_executed) {
-			const char __user *p = get_user_arg_ptr(*argv, 1);
-			if (p && !IS_ERR(p)) {
-				char first_arg[16];
-				ksu_strncpy_from_user_nofault(
-					first_arg, p, sizeof(first_arg));
-				pr_info("/system/bin/init first arg: %s\n",
-					first_arg);
-				if (!strcmp(first_arg, "second_stage")) {
-					pr_info("/system/bin/init second_stage executed\n");
-					handle_second_stage();
-					init_second_stage_executed = true;
-				}
-			} else {
-				pr_err("/system/bin/init parse args err!\n");
-			}
+		char buf[16];
+		if (!init_second_stage_executed &&
+		    check_argv(*argv, 1, "second_stage", buf, sizeof(buf))) {
+			pr_info("/system/bin/init second_stage executed\n");
+			handle_second_stage();
+			init_second_stage_executed = true;
 		}
 	} else if (unlikely(!memcmp(filename->name, old_system_init,
 				    sizeof(old_system_init) - 1) &&
 			    argv)) {
-		// /init executed
-		int argc = count(*argv, MAX_ARG_STRINGS);
-		pr_info("/init argc: %d\n", argc);
-		if (argc > 1 && !init_second_stage_executed) {
+		char buf[16];
+		if (!init_second_stage_executed &&
+		    check_argv(*argv, 1, "--second-stage", buf, sizeof(buf))) {
 			/* This applies to versions between Android 6 ~ 7 */
-			const char __user *p = get_user_arg_ptr(*argv, 1);
-			if (p && !IS_ERR(p)) {
-				char first_arg[16];
-				ksu_strncpy_from_user_nofault(
-					first_arg, p, sizeof(first_arg));
-				pr_info("/init first arg: %s\n", first_arg);
-				if (!strcmp(first_arg, "--second-stage")) {
-					pr_info("/init second_stage executed\n");
-					handle_second_stage();
-					init_second_stage_executed = true;
-				}
-			} else {
-				pr_err("/init parse args err!\n");
-			}
-		} else if (argc == 1 && !init_second_stage_executed && envp) {
+			pr_info("/init second_stage executed\n");
+			handle_second_stage();
+			init_second_stage_executed = true;
+		} else if (count(*argv, MAX_ARG_STRINGS) == 1 &&
+			   !init_second_stage_executed && envp) {
 			/* This applies to versions between Android 8 ~ 9  */
 			int envc = count(*envp, MAX_ARG_STRINGS);
 			if (envc > 0) {
@@ -342,20 +355,24 @@ int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 		}
 	}
 
-	if (unlikely(first_app_process && !memcmp(filename->name, app_process,
-						  sizeof(app_process) - 1))) {
-		first_app_process = false;
-		pr_info("exec app_process, /data prepared, second_stage: %d\n",
-			init_second_stage_executed);
-		struct task_struct *init_task;
-		rcu_read_lock();
-		init_task = rcu_dereference(current->real_parent);
-		if (init_task) {
-			task_work_add(init_task, &on_post_fs_data_cb,
-				      TWA_RESUME);
+	if (unlikely(first_zygote &&
+		     !memcmp(filename->name, app_process,
+			     sizeof(app_process) - 1) &&
+		     argv)) {
+		char buf[16];
+		if (check_argv(*argv, 1, "-Xzygote", buf, sizeof(buf))) {
+			pr_info("exec zygote, /data prepared, second_stage: %d\n",
+				init_second_stage_executed);
+			rcu_read_lock();
+			struct task_struct *init_task =
+				rcu_dereference(current->real_parent);
+			if (init_task)
+				task_work_add(init_task, &on_post_fs_data_cb,
+					      TWA_RESUME);
+			rcu_read_unlock();
+			first_zygote = false;
+			stop_execve_hook();
 		}
-		rcu_read_unlock();
-		stop_execve_hook();
 	}
 
 	return 0;
@@ -392,10 +409,10 @@ append_ksu_rc:
 		append_count = count - ret;
 	// copy_to_user returns the number of not copied
 	if (copy_to_user(buf + ret, KERNEL_SU_RC + ksu_rc_pos, append_count)) {
-		pr_info("read_proxy: append error, totally appended %ld\n",
+		pr_info("read_proxy: append error, totally appended %zd\n",
 			ksu_rc_pos);
 	} else {
-		pr_info("read_proxy: append %ld\n", append_count);
+		pr_info("read_proxy: append %zu\n", append_count);
 
 		ksu_rc_pos += append_count;
 		if (ksu_rc_pos == ksu_rc_len) {
@@ -425,10 +442,10 @@ append_ksu_rc:
 	append_count = copy_to_iter(KERNEL_SU_RC + ksu_rc_pos,
 				    ksu_rc_len - ksu_rc_pos, to);
 	if (!append_count) {
-		pr_info("read_iter_proxy: append error, totally appended %ld\n",
+		pr_info("read_iter_proxy: append error, totally appended %zd\n",
 			ksu_rc_pos);
 	} else {
-		pr_info("read_iter_proxy: append %ld\n", append_count);
+		pr_info("read_iter_proxy: append %zu\n", append_count);
 
 		ksu_rc_pos += append_count;
 		if (ksu_rc_pos == ksu_rc_len) {
@@ -515,7 +532,7 @@ int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
 	rc_hooked = true;
 
 	// now we can sure that the init process is reading
-	// `/system/etc/init/init.rc`
+	// `/system/etc/init/hw/init.rc` or `/init.rc`
 	count = *count_ptr;
 
 	pr_info("vfs_read: %s, comm: %s, count: %zu, rc_count: %zu\n", dpath,

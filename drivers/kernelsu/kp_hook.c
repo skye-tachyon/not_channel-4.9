@@ -142,7 +142,11 @@ static int reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
 	void __user **arg = (void __user **)&PT_REGS_SYSCALL_PARM4(real_regs);
 
 	// cmd is not really used here, so we NULL!
-	return ksu_handle_sys_reboot(magic1, magic2, NULL, arg);
+	if (ksu_handle_sys_reboot(magic1, magic2, NULL, arg)) {
+		pr_err("kp_hook: sys_reboot failure\n");
+	}
+
+	return 0;
 }
 
 static DECL_KP(reboot_kp, REBOOT_SYMBOL, reboot_handler_pre);
